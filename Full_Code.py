@@ -22,9 +22,6 @@ from sklearn.utils import class_weight
 import warnings
 warnings.filterwarnings('ignore')
 
-# ==============================================================================
-# SABITLER & HİPERPARAMETRELER
-# ==============================================================================
 BENIGN_FILE = ' '
 ATTACK_FILE = ' '
 
@@ -45,11 +42,6 @@ LSTM_L2      = 3e-3
 LSTM_UNITS_1 = 24
 LSTM_UNITS_2 = 12
 NOISE_STD    = 0.10
-
-
-# ==============================================================================
-# KATMAN 1 — SENSİBİLİTY
-# ==============================================================================
 def sensibility_layer(benign_path, attack_path):
     print("=" * 60)
     print("KATMAN 1 — SENSİBİLİTY")
@@ -123,11 +115,6 @@ def sensibility_layer(benign_path, attack_path):
             b_train, b_val, b_test,
             a_train, a_val, a_test,
             scaler, train_median, common_cols)
-
-
-# ==============================================================================
-# KATMAN 2 — İMAGINATION (DAE)
-# ==============================================================================
 def build_imagination_model(input_dim):
     h1 = max(64, input_dim)
     h2 = max(32, input_dim // 2)
@@ -147,8 +134,6 @@ def build_imagination_model(input_dim):
     schema_model = Model(ae_in, schema, name='Kantian_Schema_Encoder')
     imagination.compile(optimizer=Adam(DAE_LR), loss='mae')
     return imagination, schema_model
-
-
 def train_imagination(X_train_benign, X_val_benign):
     print("\n" + "=" * 60)
     print("IMAGINATION")
@@ -160,8 +145,7 @@ def train_imagination(X_train_benign, X_val_benign):
           f"clean")
 
     imagination, schema_model = build_imagination_model(X_train_benign.shape[1])
-
-    
+  
     _rng = np.random.default_rng(42)
     X_train_noisy = (X_train_benign
                      + _rng.normal(0, NOISE_STD, X_train_benign.shape)
@@ -185,8 +169,6 @@ def train_imagination(X_train_benign, X_val_benign):
         callbacks=callbacks, verbose=1
     )
     return imagination, schema_model, history
-
-
 def optimize_imagination_threshold(imagination, X_val_2d, y_val):
     print("\n  Optimization")
     recon       = imagination.predict(X_val_2d, batch_size=DAE_BATCH, verbose=0)
@@ -245,10 +227,6 @@ def build_schema_sequences(schema_model, imagination, df_cls0, df_cls1,
     perm    = np.random.RandomState(seed).permutation(len(seqs))
     return seqs[perm], labs[perm], anomaly[perm]
 
-
-# ==============================================================================
-# KATMAN 3 — UNDERSTANDING (LSTM)
-# ==============================================================================
 def build_understanding_model(schema_dim):
     reg = l2(LSTM_L2)
     inp = Input(shape=(SEQ_LEN, schema_dim), name='imagination_schemas')
@@ -269,8 +247,6 @@ def build_understanding_model(schema_dim):
         metrics=['accuracy', tf.keras.metrics.AUC(name='auroc')]
     )
     return model
-
-
 def train_understanding(X_train_seq, y_train, X_val_seq, y_val):
     print("\n" + "=" * 60)
     print("UNDERSTANDING")
@@ -301,9 +277,6 @@ def train_understanding(X_train_seq, y_train, X_val_seq, y_val):
     return model, history
 
 
-# ==============================================================================
-# LAYER 4 — REASON / COGNİTİVE
-# ==============================================================================
 def optimize_reason(understanding_model, X_val_seq, y_val, anomaly_val):
     print("\n" + "=" * 60)
     print("Layer 4 — REASON / COGNİTİVE (Kantian Reasoner)")
@@ -343,10 +316,6 @@ def reason_predict(understanding_model, X_seq, anomaly,
     judgement    = (reason_score >= threshold).astype(int)
     return judgement, reason_score, understanding_scores, anomaly
 
-
-# ==============================================================================
-# 5. ABLATION TABLE
-# ==============================================================================
 def compute_metrics(y_test, y_val,
                     final_judgement, reason_score,
                     understanding_scores, anomaly_test,
@@ -411,11 +380,6 @@ def compute_metrics(y_test, y_val,
         'val_f1': val_f1, 'test_f1': under_f1, 'gap': gap,
         'w_imag': w_imag, 'w_under': w_under
     }
-
-
-# ==============================================================================
-# 6. PRINTEABLE
-# ==============================================================================
 def plot_results(imag_history, under_history,
                  anomaly_test, y_test, final_judgement,
                  anomaly_threshold, metrics):
@@ -511,9 +475,7 @@ def plot_results(imag_history, under_history,
     plt.tight_layout()
     plt.savefig('sanna_v5.0_results.png', dpi=150, bbox_inches='tight')
     plt.show()
-    print("\nGörsel kaydedildi: sanna_v5.0_results.png")
-
-
+    print("\nImage.png")
 
 def compute_extended_metrics(y_true, y_pred, y_score=None, name="Model"):
     cm = confusion_matrix(y_true, y_pred)
@@ -548,11 +510,6 @@ def compute_extended_metrics(y_true, y_pred, y_score=None, name="Model"):
         'fpr': fpr, 'fnr': fnr, 'kar': kar, 'roc': roc, 'pr': pr,
         'TN': int(TN), 'FP': int(FP), 'FN': int(FN), 'TP': int(TP)
     }
-
-
-# ==============================================================================
-# ★ BASELINE MODEL (RF, XGB, IF, OC-SVM)
-# ==============================================================================
 def run_baselines(X_train_2d, X_test_2d, y_tr, y_te):
     from sklearn.ensemble import RandomForestClassifier, IsolationForest
     from sklearn.svm import OneClassSVM
@@ -599,10 +556,6 @@ def run_baselines(X_train_2d, X_test_2d, y_tr, y_te):
 
     return results
 
-
-# ==============================================================================
-# ★ LSTM-AE BASELINE
-# ==============================================================================
 def run_lstm_ae_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te):
     print("\n" + "=" * 60)
     print("★ LSTM-AE BASELINE")
@@ -648,11 +601,6 @@ def run_lstm_ae_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te):
     recon_te = lstm_ae.predict(X_te_seq, batch_size=512, verbose=0)
     err_te   = np.mean(np.abs(X_te_seq - recon_te), axis=(1, 2))
     return compute_extended_metrics(y_te_seq, (err_te > best_thr).astype(int), err_te, "LSTM-AE Baseline")
-
-
-# ==============================================================================
-# ★ CNN-LSTM BASELINE
-# ==============================================================================
 def run_cnn_lstm_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te):
     print("\n" + "=" * 60)
     print("★ CNN-LSTM BASELINE")
@@ -692,11 +640,6 @@ def run_cnn_lstm_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te):
 
     proba_te = cnn_lstm.predict(X_te_seq, batch_size=512, verbose=0).flatten()
     return compute_extended_metrics(y_te_seq, (proba_te >= 0.5).astype(int), proba_te, "CNN-LSTM Baseline")
-
-
-# ==============================================================================
-# ★ TRANSFORMER-ENCODER BASELINE
-# ==============================================================================
 def run_transformer_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te):
     
     print("\n" + "=" * 60)
@@ -751,12 +694,10 @@ def run_transformer_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te):
             epsilon=1e-6,
             name=f'ln2_{blk}'
         )(x + ff)
-
     x   = tf.keras.layers.GlobalAveragePooling1D(name='transformer_pool')(x)
     x   = Dropout(0.3, name='transformer_dropout')(x)
     x   = Dense(32, activation='relu', name='transformer_dense')(x)
     out = Dense(1, activation='sigmoid', name='transformer_out')(x)
-
     transformer = Model(inp, out, name='Transformer_IDS_Baseline')
     transformer.compile(
         optimizer=Adam(3e-4),
@@ -783,7 +724,6 @@ def run_transformer_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te):
             verbose=1
         )
     ]
-
     transformer.fit(
         X_tr_seq, y_tr_seq,
         validation_data=(X_vl_seq, y_vl_seq),
@@ -793,8 +733,6 @@ def run_transformer_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te):
         callbacks=callbacks,
         verbose=1
     )
-
-    
     val_proba = transformer.predict(X_vl_seq, batch_size=512, verbose=0).flatten()
     best_f1, best_thr = -1.0, 0.5
     for thr in np.linspace(0.05, 0.95, 181):
@@ -813,10 +751,6 @@ def run_transformer_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te):
         proba_te,
         "Transformer-IDS Baseline"
     )
-
-# ==============================================================================
-# ★ KitNET (Kitsune) BASELINE
-# ==============================================================================
 class _KitNET_AE:
     
     def __init__(self, n_in, hidden_ratio=0.75, lr=0.1, seed=42):
@@ -830,15 +764,12 @@ class _KitNET_AE:
         self.lr = lr
         self.nmax = np.full(n_in, -np.inf)
         self.nmin = np.full(n_in,  np.inf)
-
     def _sig(self, x):
         return 1.0 / (1.0 + np.exp(-np.clip(x, -50, 50)))
-
     def _norm(self, x):
         self.nmax = np.maximum(self.nmax, x)
         self.nmin = np.minimum(self.nmin, x)
         return (x - self.nmin) / (self.nmax - self.nmin + 1e-13)
-
     def train(self, x):
         x = self._norm(x)
         h = self._sig(x @ self.W + self.hb)
@@ -856,8 +787,6 @@ class _KitNET_AE:
         h = self._sig(x @ self.W + self.hb)
         z = self._sig(h @ self.W.T + self.vb)
         return np.sqrt(np.mean((x - z) ** 2))
-
-
 class _KitNET:
     
     def __init__(self, n_features, max_ae=10, hidden_ratio=0.75, lr=0.1, seed=42):
@@ -887,12 +816,9 @@ class _KitNET:
     def train(self, x):
         rmses = np.array([ae.train(x[g]) for ae, g in zip(self.ens, self.groups)])
         self.out.train(rmses)
-
     def score(self, x):
         rmses = np.array([ae.score(x[g]) for ae, g in zip(self.ens, self.groups)])
         return self.out.score(rmses)
-
-
 def run_kitnet_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te, max_train=50000):
     
     print("\n" + "=" * 60)
@@ -922,11 +848,6 @@ def run_kitnet_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te, max_t
     print("  Test score...")
     te_scores = np.array([kn.score(x) for x in X_test_2d])
     return compute_extended_metrics(y_te, (te_scores >= thr).astype(int), te_scores, "KitNET")
-
-
-# ==============================================================================
-# ★ Multiple SEED
-# ==============================================================================
 def run_multi_seed(seeds=[42, 123, 7, 99, 0]):
     print("\n" + "=" * 60)
     
@@ -953,7 +874,6 @@ def run_multi_seed(seeds=[42, 123, 7, 99, 0]):
         fj, rs, us, _ = reason_predict(und, X_te_s, at, wi, wu, rt)
 
         all_results.append(compute_extended_metrics(y_te_s, fj, rs, f"Seed {seed}"))
-
     print("\n" + "=" * 60)
     print("★ (mean ± std)")
     print("=" * 60)
@@ -966,28 +886,19 @@ def run_multi_seed(seeds=[42, 123, 7, 99, 0]):
         unit = '' if k == 'mcc' else '%'
         print(f"  {k.upper():8s}: {m:.4f}{unit} ± {s:.4f}{unit}")
     return all_results, summary
-
-
-# ==============================================================================
-# ★ CPU LATENCY
-# ==============================================================================
 def measure_cpu_latency(understanding_model, X_test_seq, imagination, X_test_2d,
                          w_imag, w_under, reason_threshold):
     import time
     print("\n" + "=" * 60)
     print("★ CPU LATENCY ")
     print("=" * 60)
-    
-
     n = len(X_test_seq)
     start = time.time()
     recon = imagination.predict(X_test_2d, batch_size=DAE_BATCH, verbose=0)
     dae_t = time.time() - start
-
     start = time.time()
     us = understanding_model.predict(X_test_seq, batch_size=LSTM_BATCH, verbose=0).flatten()
     lstm_t = time.time() - start
-
     anom = np.mean(np.abs(X_test_2d - recon), axis=1)
     start = time.time()
     an = (anom - anom.min()) / (anom.max() - anom.min() + 1e-9)
@@ -995,7 +906,6 @@ def measure_cpu_latency(understanding_model, X_test_seq, imagination, X_test_2d,
     rs = w_under * us + w_imag * an
     _  = (rs >= reason_threshold).astype(int)
     rsn_t = time.time() - start
-
     total_t = dae_t + lstm_t + rsn_t
     dae_ms, lstm_ms = dae_t/n*1000, lstm_t/n*1000
     rsn_ms, tot_ms  = rsn_t/n*1000, total_t/n*1000
@@ -1010,26 +920,16 @@ def measure_cpu_latency(understanding_model, X_test_seq, imagination, X_test_2d,
     print(f"\n  Throughput: ~{1000/tot_ms:.0f} örnek/sn")
     return {'dae_ms': dae_ms, 'lstm_ms': lstm_ms, 'rsn_ms': rsn_ms, 'total_ms': tot_ms}
 
-
-# ==============================================================================
-# Kantian Pipeline
-# ==============================================================================
 if __name__ == "__main__":
-
-    # ── LAYER 1: SENSİBİLİTY ─────────────────────────────────────────────────
     (X_train_2d, X_val_2d, X_test_2d,
      y_tr, y_vl, y_te,
      b_train, b_val, b_test,
      a_train, a_val, a_test,
      scaler, train_median, common_cols) = sensibility_layer(BENIGN_FILE, ATTACK_FILE)
-
-    # ── LAYER 2: IMAGINATION ─────────────────────────────────────────────────
     X_train_b = X_train_2d[y_tr == 0]
     X_val_b   = X_val_2d  [y_vl == 0]
     imagination, schema_model, imag_history = train_imagination(X_train_b, X_val_b)
-
     anomaly_threshold = optimize_imagination_threshold(imagination, X_val_2d, y_vl)
-
     print("\nKantian shema (Imagination → Understanding)...")
     X_train_seq, y_train, _           = build_schema_sequences(
         schema_model, imagination, b_train, a_train, scaler, train_median, noisy=True)
@@ -1037,26 +937,18 @@ if __name__ == "__main__":
         schema_model, imagination, b_val, a_val, scaler, train_median, noisy=False)
     X_test_seq,  y_test,  anomaly_test = build_schema_sequences(
         schema_model, imagination, b_test, a_test, scaler, train_median, noisy=False)
-
     print(f"\n{'─'*45}")
     for name, yy in [("Train", y_train), ("Val", y_val), ("Test", y_test)]:
         u, c = np.unique(yy, return_counts=True); d = dict(zip(u, c))
         print(f"  {name:5s}: Benign={d.get(0,0):>7d}  Attack={d.get(1,0):>7d}")
     print(f" {X_train_seq.shape}")
     print(f"{'─'*45}")
-
-    # ── LAYER 3: UNDERSTANDING ───────────────────────────────────────────────
     understanding_model, under_history = train_understanding(
         X_train_seq, y_train, X_val_seq, y_val)
-
-    # ── LAYER 4: REASON / COGNİTİVE ─────────────────────────────────────────
     w_imag, w_under, reason_threshold, _ = optimize_reason(
         understanding_model, X_val_seq, y_val, anomaly_val)
-
     final_judgement, reason_score, understanding_scores, _ = reason_predict(
         understanding_model, X_test_seq, anomaly_test, w_imag, w_under, reason_threshold)
-
-    # ── THRESHOLD SENSITIVITY GRAPH ──────────────────────
     _taus = np.linspace(0.0, 1.0, 200)
     _f1s, _fprs = [], []
     for _t in _taus:
@@ -1080,44 +972,24 @@ if __name__ == "__main__":
     plt.savefig('threshold_sensitivity.png', dpi=150, bbox_inches='tight')
     plt.close(_fig)
     print(f"\u2713 threshold_sensitivity.pdf (tau*={reason_threshold:.4f})")
-
-    # ── ABLATION ────────────────────────────────────────
     metrics = compute_metrics(
         y_test, y_val, final_judgement, reason_score,
         understanding_scores, anomaly_test,
         anomaly_threshold, w_imag, w_under, reason_threshold,
         understanding_model, X_val_seq)
-
-    # ── Proposed Model ────────────────────────────
     extended = compute_extended_metrics(
         y_test, final_judgement, reason_score, "Proposed Model (Cognitive/Reason)")
-
-    # ── BASELINE (RF, XGB, IF, OC-SVM) ────────────────────────────
     baseline_results = run_baselines(X_train_2d, X_test_2d, y_tr, y_te)
-
-    # ── LSTM-AE BASELINE ────────────────────────────────────────────────────
     lstm_ae_result = run_lstm_ae_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te)
-
-    # ── CNN-LSTM BASELINE ───────────────────────────────────────────────────
     cnn_lstm_result = run_cnn_lstm_baseline(X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te)
-
-    # ── TRANSFORMER BASELINE ──────────────────────
     transformer_result = run_transformer_baseline(
         X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te)
-
-    # ── KitNET BASELINE ─────────────────────────────────
     kitnet_result = run_kitnet_baseline(
         X_train_2d, X_val_2d, X_test_2d, y_tr, y_vl, y_te)
-
-    # ── CPU LATENCY  ─────────────
     cpu_latency = measure_cpu_latency(
         understanding_model, X_test_seq, imagination, X_test_2d,
         w_imag, w_under, reason_threshold)
 
-    # ── Multiple SEED  ───────────────────
-
     multi_results, summary = run_multi_seed(seeds=[42, 123, 7, 99, 0])
-
-    # ── DRAWING ──────────────────────────────────────────────
     plot_results(imag_history, under_history, anomaly_test, y_test,
                  final_judgement, anomaly_threshold, metrics)
